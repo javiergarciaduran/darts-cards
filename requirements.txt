@@ -4,3 +4,6 @@ torch==1.0.0
 torchvision==0.2.1
 tensorboard==1.13.0
 tensorboardX==1.6
+wandb 
+scikit-learn
+pyyaml

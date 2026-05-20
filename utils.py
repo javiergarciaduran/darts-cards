@@ -21,6 +21,18 @@ def get_data(dataset, data_path, cutout_length, validation):
     elif dataset == 'fashionmnist':
         dset_cls = dset.FashionMNIST
         n_classes = 10
+    elif dataset == 'cards': 
+        from datasets.cards import get_cards
+        input_size = 32
+        input_channels = 3
+        train_data, val_data, n_classes = get_cards(
+            data_path, input_size=input_size, cutout_length=cutout_length
+        )
+        ret = [input_size, input_channels, n_classes, train_data]
+        if validation: 
+            ret.append(val_data)
+            
+        return ret
     else:
         raise ValueError(dataset)
 

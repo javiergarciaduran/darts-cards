@@ -1,2 +1,20 @@
+# --- from the original pc.darts repo ---
 *.pyc
 *.swp
+
+# --- for large folders and outputs ---
+data/
+experiments/
+
+# --- python cache ---
+__pycache__/
+
+# --- jupyter checkpoints ---
+.ipynb_checkpoints/
+
+# --- weights and biases local cache ---
+wandb/
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
