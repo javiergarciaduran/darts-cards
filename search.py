@@ -13,6 +13,11 @@ from visualize import plot
 
 config = SearchConfig()
 
+# create output directories before anything tries to write to them
+os.makedirs(config.path, exist_ok=True)
+os.makedirs(config.plot_path, exist_ok=True)
+os.makedirs(os.path.join(config.path, "tb"), exist_ok=True)
+
 device = torch.device("cuda")
 
 # tensorboard
@@ -74,6 +79,7 @@ def main():
 
     # training loop
     best_top1 = 0.
+    best_genotype = None
     for epoch in range(config.epochs):
         lr_scheduler.step()
         lr = lr_scheduler.get_lr()[0]
@@ -109,7 +115,14 @@ def main():
         print("")
 
     logger.info("Final best Prec@1 = {:.4%}".format(best_top1))
-    logger.info("Best Genotype = {}".format(best_genotype))
+    if best_genotype is not None:
+        logger.info("Best Genotype = {}".format(best_genotype))
+        genotype_path = os.path.join(config.path, 'genotype.txt')
+        with open(genotype_path, 'w') as f:
+            f.write(str(best_genotype))
+        logger.info("Genotype saved to {}".format(genotype_path))
+    else:
+        logger.warning("No best genotype recorded")
 
 
 def train(train_loader, valid_loader, model, architect, w_optim, alpha_optim, lr, epoch):

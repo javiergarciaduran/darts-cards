@@ -62,6 +62,8 @@ class SearchConfig(BaseConfig):
         parser.add_argument('--alpha_lr', type=float, default=3e-4, help='lr for alpha')
         parser.add_argument('--alpha_weight_decay', type=float, default=1e-3,
                             help='weight decay for alpha')
+        parser.add_argument('--data_path', default='./data/', help='path to dataset')
+        parser.add_argument('--path', default=None, help='output directory root')
 
         return parser
 
@@ -70,8 +72,10 @@ class SearchConfig(BaseConfig):
         args = parser.parse_args()
         super().__init__(**vars(args))
 
-        self.data_path = './data/'
-        self.path = os.path.join('searchs', self.name)
+        if self.path is None:
+            self.path = os.path.join('searchs', self.name)
+        else:
+            self.path = os.path.join(self.path, self.name)
         self.plot_path = os.path.join(self.path, 'plots')
         self.gpus = parse_gpus(self.gpus)
 
@@ -98,6 +102,8 @@ class AugmentConfig(BaseConfig):
         parser.add_argument('--aux_weight', type=float, default=0.4, help='auxiliary loss weight')
         parser.add_argument('--cutout_length', type=int, default=16, help='cutout length')
         parser.add_argument('--drop_path_prob', type=float, default=0.2, help='drop path prob')
+        parser.add_argument('--data_path', default='./data/', help='path to dataset')
+        parser.add_argument('--path', default=None, help='output directory root')
 
         parser.add_argument('--genotype', required=True, help='Cell genotype')
 
@@ -108,7 +114,9 @@ class AugmentConfig(BaseConfig):
         args = parser.parse_args()
         super().__init__(**vars(args))
 
-        self.data_path = './data/'
-        self.path = os.path.join('augments', self.name)
+        if self.path is None:
+            self.path = os.path.join('augments', self.name)
+        else:
+            self.path = os.path.join(self.path, self.name)
         self.genotype = gt.from_str(self.genotype)
         self.gpus = parse_gpus(self.gpus)

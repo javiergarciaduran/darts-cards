@@ -30,14 +30,11 @@ def build_transforms(input_size=32, training=True, cutout_length=0):
     return T.Compose(tfms)
 
 
-def get_cards(data_path, input_size=32, cutout_length=0):
-    train_data = dset.ImageFolder(
-        root=f"{data_path}/train",
-        transform=build_transforms(input_size, training=True, cutout_length=cutout_length)
+def get_cards(data_path, input_size=32, cutout_length=0, split='train'):
+    training = (split == 'train')
+    dataset = dset.ImageFolder(
+        root=f"{data_path}/{split}",
+        transform=build_transforms(input_size, training=training, cutout_length=cutout_length)
     )
-    val_data = dset.ImageFolder(
-        root=f"{data_path}/val",
-        transform=build_transforms(input_size, training=False)
-    )
-    n_classes = len(train_data.classes)
-    return train_data, val_data, n_classes
+    n_classes = len(dataset.classes)
+    return dataset, n_classes

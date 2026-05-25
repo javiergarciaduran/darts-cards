@@ -1,4 +1,4 @@
-# --- from the original pc.darts repo ---
+# --- from the original pt.darts repo ---
 *.pyc
 *.swp
 
@@ -18,3 +18,7 @@ wandb/
 # --- OS junk ---
 .DS_Store
 Thumbs.db
+
+# Internal docs 
+docs
+CLAUDE.md
