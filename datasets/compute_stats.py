@@ -21,15 +21,15 @@ loader = DataLoader(
     batch_size=128, num_workers=2, shuffle=False
 )
 
-mean = torch.zeros(3)
-std  = torch.zeros(3)
-n    = 0
+channels_sum = torch.zeros(3)
+channels_squared_sum = torch.zeros(3)
+total_pixels = 0
 for imgs, _ in loader:
-    b = imgs.size(0)
-    mean += imgs.view(b, 3, -1).mean(dim=[0, 2])
-    std  += imgs.view(b, 3, -1).std(dim=[0, 2])
-    n    += b
+    channels_sum += torch.sum(imgs, dim=[0, 2, 3])
+    channels_squared_sum += torch.sum(imgs ** 2, dim=[0, 2, 3])
+    total_pixels += imgs.size(0) * imgs.size(2) * imgs.size(3)
 
-mean /= n; std /= n
+mean = channels_sum / total_pixels
+std = torch.sqrt(channels_squared_sum / total_pixels - mean ** 2)
 print(f"CARDS_MEAN = [{mean[0]:.4f}, {mean[1]:.4f}, {mean[2]:.4f}]")
 print(f"CARDS_STD  = [{std[0]:.4f},  {std[1]:.4f},  {std[2]:.4f}]")
