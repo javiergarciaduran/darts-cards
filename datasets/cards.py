@@ -2,9 +2,9 @@
 import torchvision.datasets as dset
 import torchvision.transforms as T
 
-# Replace with your computed values from compute_stats.py
-CARDS_MEAN = [0.485, 0.456, 0.406]
-CARDS_STD  = [0.229, 0.224, 0.225]
+
+CARDS_MEAN = [0.7790, 0.7314, 0.7053]
+CARDS_STD  = [0.2703,  0.2972,  0.3059]
 
 
 def build_transforms(input_size=32, training=True, cutout_length=0):
