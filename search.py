@@ -61,6 +61,7 @@ def main():
     n_train = len(train_data)
     split = n_train // 2
     indices = list(range(n_train))
+    np.random.shuffle(indices)
     train_sampler = torch.utils.data.sampler.SubsetRandomSampler(indices[:split])
     valid_sampler = torch.utils.data.sampler.SubsetRandomSampler(indices[split:])
     train_loader = torch.utils.data.DataLoader(train_data,
