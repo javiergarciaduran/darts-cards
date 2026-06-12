@@ -101,3 +101,22 @@ def parse(alpha, k):
         gene.append(node_gene)
 
     return gene
+
+# ── Cards dataset ─────────────────────────────────────────────────────────────
+# Search run: seed=42, epochs=50, init_channels=16, layers=8
+CARDS_V1 = Genotype(
+    normal=[
+        [('dil_conv_3x3', 1), ('dil_conv_5x5', 0)],
+        [('dil_conv_3x3', 1), ('dil_conv_5x5', 2)],
+        [('dil_conv_5x5', 3), ('dil_conv_3x3', 1)],
+        [('dil_conv_3x3', 3), ('sep_conv_3x3', 4)],
+    ],
+    normal_concat=range(2, 6),
+    reduce=[
+        [('max_pool_3x3', 1), ('skip_connect', 0)],
+        [('max_pool_3x3', 1), ('dil_conv_5x5', 2)],
+        [('max_pool_3x3', 1), ('skip_connect', 3)],
+        [('max_pool_3x3', 1), ('sep_conv_5x5', 3)],
+    ],
+    reduce_concat=range(2, 6),
+)
