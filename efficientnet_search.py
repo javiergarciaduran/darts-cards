@@ -126,6 +126,14 @@ class EfficientNetNAS(nn.Module):
         return [p for n, p in self.named_parameters()
                 if 'features' not in n and '_arch_params' not in n]
 
+    def train(self, mode: bool = True):
+        """Mantiene el backbone (incluidas sus BatchNorm) en modo eval,
+        aunque el resto del modelo se ponga en modo entrenamiento, para
+        que esté realmente congelado (parámetros y estadísticas de BN)."""
+        super().train(mode)
+        self.features.eval()
+        return self
+
     def forward(self, x):
         # Backbone (sin gradientes)
         with torch.no_grad():
@@ -303,7 +311,7 @@ def main():
             best_val_acc = va_acc
             torch.save({'epoch': epoch, 'state_dict': model.state_dict(),
                         'genotype': genotype, 'val_acc': va_acc,
-                        'backbone': args.backbone},
+                        'backbone': args.backbone, 'hidden': args.hidden},
                        os.path.join(out_dir, 'best.pth.tar'))
 
     log.info(f"Best val Prec@1 = {best_val_acc:.4f}%")

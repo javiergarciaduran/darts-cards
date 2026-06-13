@@ -41,7 +41,9 @@ def main():
     ckpt     = torch.load(args.checkpoint, map_location=device, weights_only=False)
     backbone = ckpt['backbone']
     genotype = ckpt['genotype']
+    hidden   = ckpt.get('hidden', 256)
     print(f"Backbone  : {backbone}")
+    print(f"Hidden    : {hidden}")
     print(f"Genotype  : {genotype}")
     print(f"Best val  : {ckpt['val_acc']:.2f}%  (epoch {ckpt['epoch']})")
 
@@ -55,7 +57,7 @@ def main():
                              shuffle=False, num_workers=2, pin_memory=True)
 
     # ── modelo ────────────────────────────────────────────────────────────────
-    model = EfficientNetNAS(backbone, n_classes).to(device)
+    model = EfficientNetNAS(backbone, n_classes, hidden=hidden).to(device)
     model.load_state_dict(ckpt['state_dict'])
     model.eval()
 
