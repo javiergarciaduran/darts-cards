@@ -268,7 +268,7 @@ def main():
             transform=build_transforms(args.input_size, training=training)
         )
         return DataLoader(ds, batch_size=args.batch_size,
-                          shuffle=training, num_workers=2,
+                          shuffle=training, num_workers=4,
                           pin_memory=True, drop_last=training)
 
     loader_train = get_loader('train')
