@@ -7,3 +7,4 @@ tensorboardX==1.6
 wandb 
 scikit-learn
 pyyaml
+optuna
