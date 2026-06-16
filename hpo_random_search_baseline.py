@@ -13,41 +13,12 @@ from pathlib import Path
 import optuna
 
 from hpo_common import (
-    append_csv_row,
     count_completed_csv_trials,
-    run_augment_trial,
-    sample_hyperparameters,
+    make_objective,
+    seed_study_from_csv,
     trials_dataframe_path,
     STUDY_STORAGE_URL,
 )
-
-
-def make_objective(args):
-    """Build the Optuna objective function bound to the parsed CLI args."""
-
-    def objective(trial):
-        """Sample hyperparameters, run augment.py as a subprocess, and return Final Prec@1."""
-        params = sample_hyperparameters(trial)
-        trial_name = "hpo_rs_trial_{:02d}".format(trial.number)
-
-        value, return_code = run_augment_trial(trial, params, trial_name, args.hpo_output_dir)
-
-        append_csv_row(args.csv_path, {
-            "trial_number": trial.number,
-            "value": value,
-            "lr": params["lr"],
-            "weight_decay": params["weight_decay"],
-            "drop_path_prob": params["drop_path_prob"],
-            "aux_weight": params["aux_weight"],
-            "cutout_length": params["cutout_length"],
-        })
-
-        if return_code != 0 or value == -1.0:
-            raise optuna.exceptions.TrialPruned()
-
-        return value
-
-    return objective
 
 
 def parse_args():
@@ -86,8 +57,9 @@ def main():
         load_if_exists=True,
         sampler=sampler,
     )
+    seed_study_from_csv(study, args.csv_path)
 
-    study.optimize(make_objective(args), n_trials=remaining)
+    study.optimize(make_objective(args, "hpo_rs_trial_"), n_trials=remaining)
 
     try:
         print("Best trial value: {}".format(study.best_trial.value))

@@ -7,7 +7,9 @@ CARDS_MEAN = [0.7790, 0.7314, 0.7053]
 CARDS_STD  = [0.2703,  0.2972,  0.3059]
 
 
-def build_transforms(input_size=32, training=True, cutout_length=0):
+def build_transforms(input_size=32, training=True, cutout_length=0, mean=None, std=None):
+    mean = CARDS_MEAN if mean is None else mean
+    std = CARDS_STD if std is None else std
     if training:
         tfms = [
             T.Resize(int(input_size * 1.15)),
@@ -15,14 +17,14 @@ def build_transforms(input_size=32, training=True, cutout_length=0):
             T.RandomRotation(10),
             T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1),
             T.ToTensor(),
-            T.Normalize(CARDS_MEAN, CARDS_STD),
+            T.Normalize(mean, std),
         ]
     else:
         tfms = [
             T.Resize(int(input_size * 1.15)),
             T.CenterCrop(input_size),
             T.ToTensor(),
-            T.Normalize(CARDS_MEAN, CARDS_STD),
+            T.Normalize(mean, std),
         ]
     if training and cutout_length > 0:
         from preproc import Cutout

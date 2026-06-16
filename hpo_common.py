@@ -4,7 +4,7 @@ Both `hpo_random_search_baseline.py` and `hpo_tpe.py` sample augment.py
 hyperparameters, launch augment.py as a subprocess for each trial, parse the
 final validation accuracy from its log output, and record every trial result
 to a CSV file. This module centralizes that shared logic so the two scripts
-cannot drift apart on bug fixes (see docs/bugs_fixed.md).
+cannot drift apart on bug fixes (see bugs_fixed.md).
 """
 
 import csv
@@ -105,6 +105,84 @@ def sample_hyperparameters(trial):
     }
 
 
+def _build_hyperparameter_distributions():
+    """Derive Optuna distributions matching sample_hyperparameters.
+
+    Built by probing sample_hyperparameters with a throwaway in-memory study
+    so the search space used for replay (seed_study_from_csv) cannot
+    silently drift out of sync with the one actually used to sample trials.
+    """
+    probe_study = optuna.create_study()
+    probe_trial = probe_study.ask()
+    sample_hyperparameters(probe_trial)
+    return dict(probe_trial.distributions)
+
+
+HYPERPARAMETER_DISTRIBUTIONS = _build_hyperparameter_distributions()
+
+
+def seed_study_from_csv(study, csv_path):
+    """Replay completed trials from a results CSV into a freshly created study.
+
+    On Colab the SQLite study database (STUDY_DB_PATH) lives on the local,
+    ephemeral disk and is lost whenever the runtime disconnects, while the
+    results CSV lives on Drive and survives. If `study` comes back with no
+    trials (because its backing database was just (re)created) but the CSV
+    already has rows from earlier sessions, replay them as COMPLETE/PRUNED
+    trials so that:
+      - `trial.number` for the next trial continues from where the CSV left
+        off, instead of restarting at 0 and colliding with earlier trial
+        directories / CSV rows.
+      - Samplers that learn from history (e.g. TPESampler) get to rebuild
+        their model of the search space instead of starting from scratch
+        every session.
+      - The final `study.trials_dataframe()` export reflects the full run,
+        not just the current session.
+
+    Does nothing if the study already has trials (its database was not
+    lost) or if the CSV does not exist yet.
+    """
+    if len(study.trials) > 0:
+        return
+
+    csv_file = Path(csv_path)
+    if not csv_file.exists():
+        return
+
+    with open(csv_file, newline="") as f:
+        rows = list(csv.DictReader(f))
+
+    for i, row in enumerate(rows):
+        try:
+            params = {
+                "lr": float(row["lr"]),
+                "weight_decay": float(row["weight_decay"]),
+                "drop_path_prob": float(row["drop_path_prob"]),
+                "aux_weight": float(row["aux_weight"]),
+                "cutout_length": int(row["cutout_length"]),
+            }
+            value = float(row["value"])
+        except (KeyError, ValueError) as exc:
+            print("WARNING: skipping malformed row {} in {}: {}".format(i, csv_path, exc))
+            continue
+
+        if value == -1.0:
+            state = optuna.trial.TrialState.PRUNED
+            value = None
+        else:
+            state = optuna.trial.TrialState.COMPLETE
+
+        try:
+            study.add_trial(optuna.trial.create_trial(
+                state=state,
+                value=value,
+                params=params,
+                distributions=HYPERPARAMETER_DISTRIBUTIONS,
+            ))
+        except ValueError as exc:
+            print("WARNING: could not replay row {} from {}: {}".format(i, csv_path, exc))
+
+
 def run_augment_trial(trial, params, trial_name, hpo_output_dir):
     """Launch augment.py for one trial and return its Final Prec@1 (0-1) or -1.0 on failure.
 
@@ -200,3 +278,39 @@ def run_augment_trial(trial, params, trial_name, hpo_output_dir):
         print("[Trial {}] WARNING: augment.py exited with code {}".format(trial.number, return_code))
 
     return value, return_code
+
+
+def make_objective(args, trial_name_prefix):
+    """Build the Optuna objective function shared by the random-search and TPE scripts.
+
+    `trial_name_prefix` distinguishes the two scripts' trial directories /
+    log files (e.g. "hpo_rs_trial_" vs "hpo_tpe_trial_") under args.hpo_output_dir.
+    """
+
+    def objective(trial):
+        """Sample hyperparameters, run augment.py as a subprocess, and return Final Prec@1."""
+        params = sample_hyperparameters(trial)
+        trial_name = "{}{:02d}".format(trial_name_prefix, trial.number)
+
+        value, return_code = run_augment_trial(trial, params, trial_name, args.hpo_output_dir)
+
+        try:
+            append_csv_row(args.csv_path, {
+                "trial_number": trial.number,
+                "value": value,
+                "lr": params["lr"],
+                "weight_decay": params["weight_decay"],
+                "drop_path_prob": params["drop_path_prob"],
+                "aux_weight": params["aux_weight"],
+                "cutout_length": params["cutout_length"],
+            })
+        except OSError as exc:
+            print("[Trial {}] WARNING: failed to append result to {}: {}".format(
+                trial.number, args.csv_path, exc))
+
+        if return_code != 0 or value == -1.0:
+            raise optuna.exceptions.TrialPruned()
+
+        return value
+
+    return objective

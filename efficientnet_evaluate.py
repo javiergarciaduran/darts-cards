@@ -10,6 +10,7 @@ Uso:
 """
 
 import os
+import json
 import argparse
 import torch
 from torch.utils.data import DataLoader
@@ -20,7 +21,7 @@ import matplotlib.pyplot as plt
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from datasets.cards import build_transforms
-from efficientnet_search import EfficientNetNAS
+from efficientnet_search import EfficientNetNAS, IMAGENET_MEAN, IMAGENET_STD
 
 
 def get_args():
@@ -50,7 +51,8 @@ def main():
     # ── dataset test ──────────────────────────────────────────────────────────
     test_ds = dset.ImageFolder(
         root=f"{args.data_path}/test",
-        transform=build_transforms(args.input_size, training=False)
+        transform=build_transforms(args.input_size, training=False,
+                                   mean=IMAGENET_MEAN, std=IMAGENET_STD)
     )
     n_classes   = len(test_ds.classes)
     test_loader = DataLoader(test_ds, batch_size=args.batch_size,
@@ -91,6 +93,22 @@ def main():
     print(f"Test Top-5 accuracy : {top5_acc:.2f}%")
     print(f"Total test samples  : {total}")
 
+    out_dir = os.path.dirname(args.checkpoint)
+
+    # ── guardar resultados de test (métrica limpia, no usada para optimizar
+    #    los alphas, a diferencia de val_acc) ─────────────────────────────────
+    results_path = os.path.join(out_dir, 'test_results.json')
+    with open(results_path, 'w') as f:
+        json.dump({
+            'backbone': backbone,
+            'genotype': genotype,
+            'val_acc': ckpt['val_acc'],
+            'test_top1': top1_acc,
+            'test_top5': top5_acc,
+            'total_test_samples': total,
+        }, f, indent=2)
+    print(f"Saved → {results_path}")
+
     # ── matriz de confusión ───────────────────────────────────────────────────
     cm = confusion_matrix(all_labels, all_preds)
     fig, ax = plt.subplots(figsize=(16, 14))
@@ -99,7 +117,6 @@ def main():
     plt.title(f"Confusion Matrix — {backbone}  (test top-1 = {top1_acc:.1f}%)")
     plt.tight_layout()
 
-    out_dir = os.path.dirname(args.checkpoint)
     cm_path = os.path.join(out_dir, 'confusion_matrix.png')
     plt.savefig(cm_path, dpi=150)
     print(f"Saved → {cm_path}")

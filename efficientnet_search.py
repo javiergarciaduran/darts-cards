@@ -25,7 +25,14 @@ import torchvision.models as tvm
 # ── dataset ────────────────────────────────────────────────────────────────────
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from datasets.cards import get_cards, CARDS_MEAN, CARDS_STD
+from datasets.cards import build_transforms
+
+# El backbone EfficientNet está preentrenado en ImageNet: las imágenes deben
+# normalizarse con las estadísticas de ImageNet (no CARDS_MEAN/CARDS_STD, que
+# están pensadas para entrenar desde cero) para que el backbone congelado
+# reciba entradas con la distribución que espera.
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD  = [0.229, 0.224, 0.225]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -38,8 +45,23 @@ PRIMITIVES_CLS = [
     'linear_relu',     # lineal + ReLU
     'linear_bn_relu',  # lineal + BN + ReLU
     'linear_dropout',  # lineal + Dropout(0.3)
-    'skip',            # identidad (sólo si dims coinciden)
+    'skip',            # identidad, o ajuste de dimensión sin parámetros
 ]
+
+
+class _Resize(nn.Module):
+    """Conexión 'skip' sin parámetros para in_features != out_features.
+
+    Ajusta la dimensión mediante average pooling adaptativo, sin pesos
+    entrenables: a diferencia de 'linear', no aprende ninguna proyección.
+    """
+
+    def __init__(self, out_features: int):
+        super().__init__()
+        self.out_features = out_features
+
+    def forward(self, x):
+        return F.adaptive_avg_pool1d(x.unsqueeze(1), self.out_features).squeeze(1)
 
 
 class MixedOp(nn.Module):
@@ -70,7 +92,7 @@ def _build_op(name: str, in_f: int, out_f: int) -> nn.Module:
         if in_f == out_f:
             return nn.Identity()
         else:
-            return nn.Linear(in_f, out_f)   # proyección si dims distintas
+            return _Resize(out_f)   # ajuste de dimensión sin parámetros
     raise ValueError(f"Unknown op: {name}")
 
 
@@ -258,14 +280,14 @@ def main():
 
     # ── datos ─────────────────────────────────────────────────────────────────
     # EfficientNet necesita 224×224; sobreescribimos el input_size
-    from datasets.cards import build_transforms
     import torchvision.datasets as dset
 
     def get_loader(split):
         training = (split == 'train')
         ds = dset.ImageFolder(
             root=f"{args.data_path}/{split}",
-            transform=build_transforms(args.input_size, training=training)
+            transform=build_transforms(args.input_size, training=training,
+                                       mean=IMAGENET_MEAN, std=IMAGENET_STD)
         )
         return DataLoader(ds, batch_size=args.batch_size,
                           shuffle=training, num_workers=4,
