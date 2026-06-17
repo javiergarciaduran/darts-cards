@@ -183,7 +183,7 @@ def seed_study_from_csv(study, csv_path):
             print("WARNING: could not replay row {} from {}: {}".format(i, csv_path, exc))
 
 
-def run_augment_trial(trial, params, trial_name, hpo_output_dir):
+def run_augment_trial(trial, params, trial_name, hpo_output_dir, data_path="./data/cards"):
     """Launch augment.py for one trial and return its Final Prec@1 (0-1) or -1.0 on failure.
 
     Writes the subprocess output to <hpo_output_dir>/<trial_name>/stdout.txt
@@ -197,7 +197,7 @@ def run_augment_trial(trial, params, trial_name, hpo_output_dir):
         sys.executable, "-u", "augment.py",
         "--name", trial_name,
         "--dataset", "cards",
-        "--data_path", "./data/cards",
+        "--data_path", data_path,
         "--path", str(hpo_output_dir),
         "--batch_size", "96",
         "--init_channels", "24",
@@ -292,7 +292,7 @@ def make_objective(args, trial_name_prefix):
         params = sample_hyperparameters(trial)
         trial_name = "{}{:02d}".format(trial_name_prefix, trial.number)
 
-        value, return_code = run_augment_trial(trial, params, trial_name, args.hpo_output_dir)
+        value, return_code = run_augment_trial(trial, params, trial_name, args.hpo_output_dir, args.data_path)
 
         try:
             append_csv_row(args.csv_path, {

@@ -28,6 +28,7 @@ def parse_args():
     parser.add_argument("--hpo_seed", type=int, default=42)
     parser.add_argument("--hpo_output_dir", type=str, default="/content/hpo_random_search")
     parser.add_argument("--csv_path", type=str, default="/content/drive/MyDrive/hpo_results.csv")
+    parser.add_argument("--data_path", type=str, default="./data/cards")
     return parser.parse_args()
 
 
