@@ -9,6 +9,7 @@ local Colab disk - see hpo_common.STUDY_DB_PATH).
 
 import argparse
 from pathlib import Path
+import gc
 
 import optuna
 
@@ -27,7 +28,7 @@ def parse_args():
     parser.add_argument("--n_trials", type=int, default=20)
     parser.add_argument("--hpo_seed", type=int, default=42)
     parser.add_argument("--hpo_output_dir", type=str, default="/content/hpo_random_search")
-    parser.add_argument("--csv_path", type=str, default="/content/drive/MyDrive/hpo_results.csv")
+    parser.add_argument("--csv_path", type=str, default="/content/drive/MyDrive/hpo_random_search_results.csv")
     parser.add_argument("--data_path", type=str, default="./data/cards")
     return parser.parse_args()
 
@@ -59,9 +60,20 @@ def main():
         sampler=sampler,
     )
     seed_study_from_csv(study, args.csv_path)
+    results_path = trials_dataframe_path(args.csv_path)
 
-    study.optimize(make_objective(args, "hpo_rs_trial_"), n_trials=remaining)
+    def save_and_cleanup_callback(study, trial):
+        # Clear out lingering parent-process memory
+        gc.collect()
+        # Ensure the rich Optuna metadata is saved incrementally
+        df = study.trials_dataframe()
+        df.to_csv(results_path, index=False)
 
+    study.optimize(
+            make_objective(args, "hpo_rs_trial_"),
+            n_trials=remaining,
+            callbacks=[save_and_cleanup_callback] # Added callback to secure state iteratively
+        )
     try:
         print("Best trial value: {}".format(study.best_trial.value))
         print("Best trial params: {}".format(study.best_trial.params))
@@ -69,7 +81,6 @@ def main():
         print("No completed trials yet (all trials failed or were pruned).")
 
     df = study.trials_dataframe()
-    results_path = trials_dataframe_path(args.csv_path)
     df.to_csv(results_path, index=False)
     print("Saved trials dataframe to {}".format(results_path))
 

@@ -14,6 +14,7 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
+import signal
 
 import optuna
 
@@ -224,6 +225,7 @@ def run_augment_trial(trial, params, trial_name, hpo_output_dir, data_path="./da
             stderr=subprocess.STDOUT,
             text=True,
             cwd=SCRIPT_DIR,
+            preexec_fn=os.setsid
         )
     except OSError as exc:
         print("[Trial {}] ERROR: failed to launch augment.py: {}".format(trial.number, exc))
@@ -234,7 +236,7 @@ def run_augment_trial(trial, params, trial_name, hpo_output_dir, data_path="./da
     def _kill_on_timeout():
         timeout_event.set()
         try:
-            process.kill()
+            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
         except OSError:
             pass
 

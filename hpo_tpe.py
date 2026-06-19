@@ -10,6 +10,7 @@ local Colab disk - see hpo_common.STUDY_DB_PATH).
 
 import argparse
 from pathlib import Path
+import gc
 
 import optuna
 
@@ -79,7 +80,17 @@ def main():
             "cutout_length": 8,
         })
 
-    study.optimize(make_objective(args, "hpo_tpe_trial_"), n_trials=remaining)
+    results_path = trials_dataframe_path(args.csv_path)
+    def save_and_cleanup_callback(study, trial):
+        gc.collect()
+        df = study.trials_dataframe()
+        df.to_csv(results_path, index=False)
+
+    study.optimize(
+        make_objective(args, "hpo_tpe_trial_"), 
+        n_trials=remaining,
+        callbacks=[save_and_cleanup_callback]
+    )
 
     try:
         print("Best trial value: {}".format(study.best_trial.value))
@@ -88,7 +99,6 @@ def main():
         print("No completed trials yet (all trials failed or were pruned).")
 
     df = study.trials_dataframe()
-    results_path = trials_dataframe_path(args.csv_path)
     df.to_csv(results_path, index=False)
     print("Saved trials dataframe to {}".format(results_path))
 
