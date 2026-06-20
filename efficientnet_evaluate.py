@@ -21,14 +21,15 @@ import matplotlib.pyplot as plt
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from datasets.cards import build_transforms
-from efficientnet_search import EfficientNetNAS, IMAGENET_MEAN, IMAGENET_STD
+from efficientnet_search import EfficientNetNAS, IMAGENET_MEAN, IMAGENET_STD, EFFICIENTNET_NATIVE_SIZES
 
 
 def get_args():
     p = argparse.ArgumentParser()
     p.add_argument('--checkpoint', required=True)
     p.add_argument('--data_path',  default='./data/cards')
-    p.add_argument('--input_size', type=int, default=224)
+    p.add_argument('--input_size', type=int, default=None,
+                   help='Se auto-detecta desde el checkpoint si se omite.')
     p.add_argument('--batch_size', type=int, default=128)
     return p.parse_args()
 
@@ -39,19 +40,21 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # ── cargar checkpoint ─────────────────────────────────────────────────────
-    ckpt     = torch.load(args.checkpoint, map_location=device, weights_only=False)
-    backbone = ckpt['backbone']
-    genotype = ckpt['genotype']
-    hidden   = ckpt.get('hidden', 256)
+    ckpt       = torch.load(args.checkpoint, map_location=device, weights_only=False)
+    backbone   = ckpt['backbone']
+    genotype   = ckpt['genotype']
+    hidden     = ckpt.get('hidden', 256)
+    input_size = args.input_size or ckpt.get('input_size') or EFFICIENTNET_NATIVE_SIZES.get(backbone, 224)
     print(f"Backbone  : {backbone}")
     print(f"Hidden    : {hidden}")
+    print(f"Input size: {input_size}")
     print(f"Genotype  : {genotype}")
     print(f"Best val  : {ckpt['val_acc']:.2f}%  (epoch {ckpt['epoch']})")
 
     # ── dataset test ──────────────────────────────────────────────────────────
     test_ds = dset.ImageFolder(
         root=f"{args.data_path}/test",
-        transform=build_transforms(args.input_size, training=False,
+        transform=build_transforms(input_size, training=False,
                                    mean=IMAGENET_MEAN, std=IMAGENET_STD)
     )
     n_classes   = len(test_ds.classes)
