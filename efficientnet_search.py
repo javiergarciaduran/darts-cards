@@ -58,7 +58,9 @@ PRIMITIVES_CLS = [
     'linear_relu',     # lineal + ReLU
     'linear_bn_relu',  # lineal + BN + ReLU
     'linear_dropout',  # lineal + Dropout(0.3)
-    'skip',            # identidad, o ajuste de dimensión sin parámetros
+    # 'skip' eliminado: en una cabeza clasificadora es adaptive_avg_pool1d
+    # (sin parámetros), no una conexión residual. Con val sets pequeños el NAS
+    # lo elige por ser el mínimo local más fácil, colapsando el espacio de búsqueda.
 ]
 
 
