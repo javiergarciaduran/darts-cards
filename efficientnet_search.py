@@ -34,6 +34,19 @@ from datasets.cards import build_transforms
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD  = [0.229, 0.224, 0.225]
 
+# Resoluciones nativas de cada variante (usadas en el preentrenamiento ImageNet).
+# Usar la resolución incorrecta degrada las features del backbone congelado.
+EFFICIENTNET_NATIVE_SIZES = {
+    'efficientnet_b0': 224,
+    'efficientnet_b1': 240,
+    'efficientnet_b2': 260,
+    'efficientnet_b3': 300,
+    'efficientnet_b4': 380,
+    'efficientnet_b5': 456,
+    'efficientnet_b6': 528,
+    'efficientnet_b7': 600,
+}
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 1.  NAS search space: small MLP classifier
@@ -45,7 +58,9 @@ PRIMITIVES_CLS = [
     'linear_relu',     # lineal + ReLU
     'linear_bn_relu',  # lineal + BN + ReLU
     'linear_dropout',  # lineal + Dropout(0.3)
-    'skip',            # identidad, o ajuste de dimensión sin parámetros
+    # 'skip' eliminado: en una cabeza clasificadora es adaptive_avg_pool1d
+    # (sin parámetros), no una conexión residual. Con val sets pequeños el NAS
+    # lo elige por ser el mínimo local más fácil, colapsando el espacio de búsqueda.
 ]
 
 
@@ -252,13 +267,15 @@ def get_args():
     p.add_argument('--lr_w',       type=float, default=1e-3)
     p.add_argument('--lr_alpha',   type=float, default=3e-4)
     p.add_argument('--seed',       type=int, default=42)
-    p.add_argument('--input_size', type=int, default=224,
-                   help='EfficientNet espera 224×224 por defecto')
+    p.add_argument('--input_size', type=int, default=None,
+                   help='Resolución de entrada. Si se omite, se usa la nativa de cada variante.')
     return p.parse_args()
 
 
 def main():
     args = get_args()
+    if args.input_size is None:
+        args.input_size = EFFICIENTNET_NATIVE_SIZES.get(args.backbone, 224)
     torch.manual_seed(args.seed)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -333,7 +350,8 @@ def main():
             best_val_acc = va_acc
             torch.save({'epoch': epoch, 'state_dict': model.state_dict(),
                         'genotype': genotype, 'val_acc': va_acc,
-                        'backbone': args.backbone, 'hidden': args.hidden},
+                        'backbone': args.backbone, 'hidden': args.hidden,
+                        'input_size': args.input_size},
                        os.path.join(out_dir, 'best.pth.tar'))
 
     log.info(f"Best val Prec@1 = {best_val_acc:.4f}%")
